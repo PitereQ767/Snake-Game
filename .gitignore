@@ -1,0 +1,19 @@
+# Ignore Visual Studio folder
+.vs/
+.vscode/
+Debug/
+Release/
+SDL2-2.0.10/
+comp
+cs8x8.bmp
+eti.bmp
+libSDL2.a
+szablon2vs17.vcxproj
+szablon2vs19.sln
+szablon2vs19.vcxproj
+szablon2vs19.vcxproj.user
+szablon2vs19/
+x64/
+
+ 
+ 
