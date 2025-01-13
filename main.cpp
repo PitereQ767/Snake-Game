@@ -10,7 +10,7 @@ extern "C" {
 #include"./SDL2-2.0.10/include/SDL_main.h"
 }
 
-#define SCREEN_WIDTH 720
+#define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 560
 
 #define CELL_SIZE 20
@@ -32,11 +32,19 @@ extern "C" {
 
 #define SNAKE_INITIAL_LENGTH 6
 #define SNAKE_MAX_LENGTH 100
+#define SNAKE_MIN_LENGTH 3 
 
 #define SPEEDUP_TIME 15 // czas po którym nastêpuje przyœpieszenie w s
-#define SPEEDUP_FACTOR 20 // wspo³czynnik o jaki przyœpiesza gra w %
+#define SPEEDUP_FACTOR 20 // wspo³czynnik o jaki przyœpiesza gra w s
 #define GAME_SPEED 100 // pocz¹tkowa prêdkoœæ gry
 #define MIN_GAME_SPEED 50
+
+#define PROGRES_BAR_WIDTH 160
+#define BONUS_DURATION 5
+#define ACTIVE 1
+#define INACTIVE 0
+#define BONUS_TIME 10
+#define SPEEDDOWN_FACTOR 10
 
 
 typedef struct {
@@ -70,6 +78,7 @@ typedef struct {
 	int x, y;
 	int active;
 	int timer;
+	double startBonus;
 }BonusDot;
 
 
@@ -157,7 +166,7 @@ void ShowStat(GameContext* ctx, double worldTime) {
 	DrawRectangle(ctx->screen, 4, 4, SCREEN_WIDTH - 8, 36, BIALY, NIEBIESKI);
 	sprintf(text, "Snake Game, game duration = %.1lf s", worldTime);
 	DrawString(ctx->screen, ctx->screen->w / 2 - strlen(text) * 8 / 2, 8, text, ctx->charset);
-	sprintf(text, "Implemented requirements: 1, 2, 3, 4, A, B");
+	sprintf(text, "Implemented requirements: 1, 2, 3, 4, A, B, C");
 	DrawString(ctx->screen, ctx->screen->w / 2 - strlen(text) * 8 / 2, 25, text, ctx->charset);
 
 	DrawRectangle(ctx->screen, LEFT_BORDER, TOP_BORDER, GRID_WIDTH, GRID_HEIGHT, BIALY, CZARNY); // rysowanie pola gry
@@ -438,8 +447,78 @@ void CheckSpeedUp(int* gameSpeed, double* worldTime, int* lastSpeedUp) {
 	}
 }
 
+void GenerateBonusDot(BonusDot* bonus, Snake* snake, double worldTime) {
+	int valid = 0;
+	bonus->active = ACTIVE;
+	bonus->timer = BONUS_DURATION;
+	bonus->startBonus = worldTime;
 
-int MainLoop(GameContext* ctx, Snake* snake, Dot* dot) {
+	while (!valid) {
+		bonus->x = GRID_LEFT + (rand() % (GRID_WIDTH / CELL_SIZE)) * CELL_SIZE;
+		bonus->y = GRID_TOP + (rand() % (GRID_HEIGHT / CELL_SIZE)) * CELL_SIZE;
+
+		valid = 1;
+		for (int i = 0; i < snake->length; i++) {
+			if (snake->x[i] == bonus->x && snake->y[i] == bonus->y) {
+				valid = 0;
+				break;
+			}
+		}
+	}
+}
+
+void CheckBonusDotCollision(Snake* snake, BonusDot* bonus, int* gameSpeed) {
+	if (snake->x[0] == bonus->x && snake->y[0] == bonus->y) {
+		bonus->active = INACTIVE;
+
+		if (rand() % 2 == 0) {
+			if (snake->length >= SNAKE_MIN_LENGTH) {
+				snake->length -= 2;
+			}
+		}
+		else
+		{
+			*gameSpeed += SPEEDDOWN_FACTOR;
+		}
+	}
+}
+
+void DrawBonusDot(GameContext* ctx, BonusDot* bonus) {
+	DrawRectangle(ctx->screen, bonus->x, bonus->y, CELL_SIZE, CELL_SIZE, CZERWONY, CZERWONY);
+}
+
+void DrawProgressBar(GameContext* ctx, BonusDot* bonus) {
+	char text[128];
+	DrawRectangle(ctx->screen, RIGHT_BORDER + 40, TOP_BORDER, PROGRES_BAR_WIDTH, 20, BIALY, CZARNY);
+	sprintf(text, "Bonus active time");
+	DrawString(ctx->screen, RIGHT_BORDER + 52, TOP_BORDER + 6, text, ctx->charset);
+	if (bonus->active) {
+		double progress = (BONUS_DURATION - bonus->timer) / (double)BONUS_DURATION;
+		DrawBonusDot(ctx, bonus);
+		int fillWidth = (int)(progress * PROGRES_BAR_WIDTH);
+		if (fillWidth > 0){
+			DrawRectangle(ctx->screen, RIGHT_BORDER + 40, TOP_BORDER + 21, fillWidth, CELL_SIZE, CZERWONY, CZERWONY);
+		}
+		
+	}
+	//else
+	//{
+	//	DrawRectangle(ctx->screen, RIGHT_BORDER + 40, TOP_BORDER, PROGRES_BAR_WIDTH, CELL_SIZE, BIALY, CZARNY);
+	//}
+}
+
+void UpdateBonus(BonusDot* bonus, double worldTime) {
+	if (bonus->active) {
+		double deltaTime = worldTime - bonus->startBonus;
+		if (deltaTime >= BONUS_DURATION) {
+			bonus->active = INACTIVE;
+		}
+		bonus->timer = BONUS_DURATION - deltaTime;
+	}
+}
+
+
+int MainLoop(GameContext* ctx, Snake* snake, Dot* dot, BonusDot* bonus) {
 	int running = 1;
 	int tick1 = SDL_GetTicks();
 	double worldTime = 0;
@@ -452,10 +531,14 @@ int MainLoop(GameContext* ctx, Snake* snake, Dot* dot) {
 		SDL_FillRect(ctx->screen, NULL, CZARNY);
 		UpdateTime(&worldTime, &tick1);
 		CheckSpeedUp(&gameSpeed, &worldTime, &lastSpeedUp);
+		UpdateBonus(bonus, worldTime);
 
 		if (!gameOver) {
 			/*DrawGrid(ctx);*/ // siatka po której porusza siê w¹¿
 			ShowStat(ctx, worldTime);
+			if (!bonus->active && (int)worldTime % BONUS_TIME == 0) {
+				GenerateBonusDot(bonus, snake, worldTime);
+			}
 			KeyOperation(snake, &event, &running, &worldTime);
 			MoveSnake(snake);
 			
@@ -467,6 +550,11 @@ int MainLoop(GameContext* ctx, Snake* snake, Dot* dot) {
 				IncreaseSnake(snake);
 				GenerateDot(snake, dot);
 			}
+
+			CheckBonusDotCollision(snake, bonus, &gameSpeed);
+				
+
+			DrawProgressBar(ctx, bonus);
 			DrawDot(ctx, dot);
 			DrawSnake(ctx, snake);
 		}
@@ -517,8 +605,14 @@ int main(int argc, char **argv) {
 	}
 	GenerateDot(snake, dot);
 
+	BonusDot* bonus = (BonusDot*)malloc(sizeof(BonusDot));
+	if (bonus == NULL) {
+		printf("Memory allocation faild (BonusDot)");
+		return 1;
+	}
+
 	
-	MainLoop(ctx, snake, dot);
+	MainLoop(ctx, snake, dot, bonus);
 
 
 	CleanupSDL(ctx);
