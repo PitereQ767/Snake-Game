@@ -350,7 +350,7 @@ void MoveSnake(Snake* snake) {
 			snake->x[0] -= CELL_SIZE;
 			break;
 	}
-
+	
 }
 
 int CheckCollision(Snake* snake) {
@@ -467,9 +467,10 @@ void GenerateBonusDot(BonusDot* bonus, Snake* snake, double worldTime) {
 	}
 }
 
-void CheckBonusDotCollision(Snake* snake, BonusDot* bonus, int* gameSpeed) {
+void CheckBonusDotCollision(Snake* snake, BonusDot* bonus, int* gameSpeed, int* points) {
 	if (snake->x[0] == bonus->x && snake->y[0] == bonus->y) {
 		bonus->active = INACTIVE;
+		*points += 1;
 
 		if (rand() % 2 == 0) {
 			if (snake->length >= SNAKE_MIN_LENGTH) {
@@ -517,6 +518,17 @@ void UpdateBonus(BonusDot* bonus, double worldTime) {
 	}
 }
 
+void DrawPoints(GameContext* ctx, int points) {
+	char text[128];
+	DrawRectangle(ctx->screen, RIGHT_BORDER + 40, TOP_BORDER + 50, PROGRES_BAR_WIDTH, CELL_SIZE, BIALY, CZARNY);
+	sprintf(text, "Points: %d", points);
+	DrawString(ctx->screen, RIGHT_BORDER + 85, TOP_BORDER + 56, text, ctx->charset);
+}
+
+void IncreasePoints(int* points) {
+	*points += 1;
+}
+
 
 int MainLoop(GameContext* ctx, Snake* snake, Dot* dot, BonusDot* bonus) {
 	int running = 1;
@@ -526,6 +538,7 @@ int MainLoop(GameContext* ctx, Snake* snake, Dot* dot, BonusDot* bonus) {
 	int gameSpeed = GAME_SPEED;
 	int lastSpeedUp = 0;
 	SDL_Event event;
+	int points = 0;
 
 	while (running) {
 		SDL_FillRect(ctx->screen, NULL, CZARNY);
@@ -548,13 +561,15 @@ int MainLoop(GameContext* ctx, Snake* snake, Dot* dot, BonusDot* bonus) {
 
 			if (CheckDotCollision(snake, dot)) {
 				IncreaseSnake(snake);
+				IncreasePoints(&points);
 				GenerateDot(snake, dot);
 			}
 
-			CheckBonusDotCollision(snake, bonus, &gameSpeed);
+			CheckBonusDotCollision(snake, bonus, &gameSpeed, &points);
 				
 
 			DrawProgressBar(ctx, bonus);
+			DrawPoints(ctx, points);
 			DrawDot(ctx, dot);
 			DrawSnake(ctx, snake);
 		}
