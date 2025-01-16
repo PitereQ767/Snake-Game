@@ -30,9 +30,12 @@ extern "C" {
 #define TOP_BORDER GRID_TOP
 #define BOTTOM_BORDER (GRID_TOP + GRID_HEIGHT)
 
-#define SNAKE_INITIAL_LENGTH 6
+#define SNAKE_INITIAL_LENGTH 5
 #define SNAKE_MAX_LENGTH 100
 #define SNAKE_MIN_LENGTH 3 
+#define EYE_SIZE 4
+#define EYE_OFF_Y 4
+#define EYE_OFF_X 4
 
 #define SPEEDUP_TIME 15 // czas po którym nastêpuje przyœpieszenie w s
 #define SPEEDUP_FACTOR 20 // wspo³czynnik o jaki przyœpiesza gra w s
@@ -166,7 +169,7 @@ void ShowStat(GameContext* ctx, double worldTime) {
 	DrawRectangle(ctx->screen, 4, 4, SCREEN_WIDTH - 8, 36, BIALY, NIEBIESKI);
 	sprintf(text, "Snake Game, game duration = %.1lf s", worldTime);
 	DrawString(ctx->screen, ctx->screen->w / 2 - strlen(text) * 8 / 2, 8, text, ctx->charset);
-	sprintf(text, "Implemented requirements: 1, 2, 3, 4, A, B, C");
+	sprintf(text, "Implemented requirements: 1, 2, 3, 4, A, B, C, D");
 	DrawString(ctx->screen, ctx->screen->w / 2 - strlen(text) * 8 / 2, 25, text, ctx->charset);
 
 	DrawRectangle(ctx->screen, LEFT_BORDER, TOP_BORDER, GRID_WIDTH, GRID_HEIGHT, BIALY, CZARNY); // rysowanie pola gry
@@ -313,18 +316,46 @@ void DrawSnake(GameContext* ctx, Snake* snake) {
 	}
 }
 
+
 void LimitsSnake(Snake* snake) {
-	if (snake->y[0] <= TOP_BORDER  && snake->direction == UP) {
-		snake->direction = RIGHT;
+	if (snake->y[0] <= TOP_BORDER && snake->direction == UP) {
+		if (snake->x[0] >= RIGHT_BORDER - CELL_SIZE) {
+			snake->direction = LEFT;
+		}
+		else
+		{
+			snake->direction = RIGHT;
+		}
 	}
-	else if (snake->x[0] >= RIGHT_BORDER - CELL_SIZE && snake->direction == RIGHT) {
-		snake->direction = DOWN;
+	else if (snake->x[0] >= RIGHT_BORDER - CELL_SIZE && snake->direction == RIGHT) {;
+		if (snake->y[0] >= BOTTOM_BORDER - CELL_SIZE) {
+			snake->direction = UP;
+		}
+		else
+		{
+			snake->direction = DOWN;
+		}
 	}
 	else if (snake->y[0] >= BOTTOM_BORDER - CELL_SIZE && snake->direction == DOWN) {
-		snake->direction = LEFT;
+		if (snake->x[0] <= LEFT_BORDER) {
+			snake->direction = RIGHT;
+		}
+		else
+		{
+			snake->direction = LEFT;
+		}
+
 	}
 	else if (snake->x[0] <= LEFT_BORDER && snake->direction == LEFT) {
-		snake->direction = UP;
+		if (snake->y[0] <= TOP_BORDER) {
+
+			snake->direction = DOWN;
+		}
+		else
+		{
+			snake->direction = UP;
+		}
+
 	}
 }
 
@@ -364,7 +395,7 @@ int CheckCollision(Snake* snake) {
 
 void KeyOperation(Snake* snake, SDL_Event* event, int* running, double* worldTime) {
 
-	while (SDL_PollEvent(event)) {
+	if (SDL_PollEvent(event)) {
 		if (event->type == SDL_QUIT) {
 			*running = 0;
 		}
@@ -378,22 +409,22 @@ void KeyOperation(Snake* snake, SDL_Event* event, int* running, double* worldTim
 				InitSnake(snake);
 				break;
 			case SDLK_UP:
-				if (snake->direction != DOWN) {
+				if (snake->direction != DOWN && snake->y[0] != TOP_BORDER) {
 					snake->direction = UP;
 				}
 				break;
 			case SDLK_RIGHT:
-				if (snake->direction != LEFT) {
+				if (snake->direction != LEFT && snake->x[0] != RIGHT_BORDER - CELL_SIZE) {
 					snake->direction = RIGHT;
 				}
 				break;
 			case SDLK_DOWN:
-				if (snake->direction != UP) {
+				if (snake->direction != UP && snake->y[0] != BOTTOM_BORDER - CELL_SIZE) {
 					snake->direction = DOWN;
 				}
 				break;
 			case SDLK_LEFT:
-				if (snake->direction != RIGHT) {
+				if (snake->direction != RIGHT && snake->x[0] != LEFT_BORDER) {
 					snake->direction = LEFT;
 				}
 				break;
@@ -552,8 +583,10 @@ int MainLoop(GameContext* ctx, Snake* snake, Dot* dot, BonusDot* bonus) {
 			if (!bonus->active && (int)worldTime % BONUS_TIME == 0) {
 				GenerateBonusDot(bonus, snake, worldTime);
 			}
+			
 			KeyOperation(snake, &event, &running, &worldTime);
 			MoveSnake(snake);
+			
 			
 			if (CheckCollision(snake)) {
 				gameOver = 1;
@@ -578,10 +611,9 @@ int MainLoop(GameContext* ctx, Snake* snake, Dot* dot, BonusDot* bonus) {
 			HandleGameOver(ctx, snake, &event, &running, &worldTime, &gameOver);
 			lastSpeedUp = 0;
 			gameSpeed = GAME_SPEED;
+			points = 0;
 		}
 
-		
-		
 		Rendering(ctx);
 		SDL_Delay(gameSpeed);
 	}
