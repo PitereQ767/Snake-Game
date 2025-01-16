@@ -14,6 +14,9 @@ szablon2vs19.vcxproj
 szablon2vs19.vcxproj.user
 szablon2vs19/
 x64/
-
+resource.h
+szablon2vs19.aps
+szablon2vs19.rc
+szablon2vs19.vcxproj.filters
  
  
